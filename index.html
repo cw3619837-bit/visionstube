@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -86,7 +86,6 @@
     </div>
 
     <script>
-        // INSERTED YOUR CLIENT ID
         const CLIENT_ID = '290145802893-bm8ukopt87c6r9o6bmva8lmdcm8vkth3.apps.googleusercontent.com';
         let accessToken = null;
 
@@ -106,7 +105,21 @@
             document.getElementById('login-btn').onclick = () => client.requestAccessToken();
         };
 
-        // LOAD YOUR VIDEO (BY ID)
+        // NEW: FUNCTION TO MAKE VIDEO PUBLIC IMMEDIATELY
+        async function makeFilePublic(fileId) {
+            await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+                method: 'POST',
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Content-Type': 'application/json'
+                }),
+                body: JSON.stringify({
+                    'role': 'reader',
+                    'type': 'anyone'
+                })
+            });
+        }
+
         function loadInitialVideos() {
             const grid = document.getElementById('videoGrid');
             grid.innerHTML = `
@@ -122,12 +135,12 @@
             `;
         }
 
-        // FAST UPLOAD LOGIC
+        // FAST UPLOAD LOGIC WITH AUTO-UNLOCK
         document.getElementById('fileInput').onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            document.getElementById('status').innerText = "Uploading to Drive... (" + file.name + ")";
+            document.getElementById('status').innerText = "Uploading and Unlocking... (" + file.name + ")";
             
             const metadata = { name: file.name, mimeType: file.type };
             const formData = new FormData();
@@ -135,6 +148,7 @@
             formData.append('file', file);
 
             try {
+                // STEP 1: UPLOAD THE FILE
                 const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                     method: 'POST',
                     headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
@@ -142,7 +156,10 @@
                 });
                 const data = await response.json();
                 
-                // Instantly add to grid
+                // STEP 2: MAKE FILE PUBLIC SO IT PLAYS INSTANTLY
+                await makeFilePublic(data.id);
+
+                // STEP 3: ADD TO GRID
                 const newVideo = `
                     <div class="v-card">
                         <div class="v-thumb">
@@ -157,7 +174,7 @@
                 document.getElementById('videoGrid').insertAdjacentHTML('afterbegin', newVideo);
                 document.getElementById('status').innerText = "Recommended";
             } catch (err) {
-                alert("Error uploading. Check console.");
+                alert("Error uploading. Make sure your AdBlocker is off.");
                 console.error(err);
             }
         };
